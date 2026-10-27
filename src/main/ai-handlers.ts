@@ -2,9 +2,11 @@
 import { ipcMain } from 'electron'
 import logger from 'electron-log/main'
 import type { AIConfig, ChatMessage } from './ai-types'
+import { registerAgentHandlers, runAgent } from './agent-process'
 
 export function registerAIHandlers(): void {
   logger.info('[AI] Registering AI handlers')
+  registerAgentHandlers()
 
   ipcMain.handle('ai:listModels', async (_event, baseURL: string, apiKey: string) => {
     const startTime = Date.now()
@@ -68,74 +70,7 @@ export function registerAIHandlers(): void {
     }
   })
 
-  ipcMain.handle('ai:chatStream', async (event, config: AIConfig, messages: ChatMessage[]) => {
-    const sender = event.sender
-    const startTime = Date.now()
-
-    try {
-      logger.debug(`[AI] Stream request to ${config.baseURL}/chat/completions (model: ${config.model})`)
-      const response = await fetch(`${config.baseURL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.apiKey}`
-        },
-        body: JSON.stringify({
-          model: config.model,
-          messages: messages.map((m) => ({ role: m.role, content: m.content })),
-          stream: true
-        })
-      })
-
-      if (!response.ok) {
-        const errBody = await response.text()
-        logger.error(`[AI] Stream response ${response.status}: ${errBody}`)
-        sender.send('ai:streamError', `AI API error ${response.status}: ${errBody}`)
-        return
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) {
-        logger.error('[AI] No response body for stream')
-        sender.send('ai:streamError', 'No response body')
-        return
-      }
-
-      const rawChunks: Uint8Array[] = []
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        rawChunks.push(value)
-      }
-
-      const fullText = Buffer.concat(rawChunks.map((c) => Buffer.from(c))).toString('utf-8')
-
-      let fullContent = ''
-      for (const line of fullText.split('\n')) {
-        const trimmed = line.trim()
-        if (!trimmed || !trimmed.startsWith('data: ')) continue
-        const data = trimmed.slice(6)
-        if (data === '[DONE]') continue
-        try {
-          const content = JSON.parse(data).choices?.[0]?.delta?.content
-          if (content) fullContent += content
-        } catch {
-          // skip unparseable
-        }
-      }
-
-      logger.info(`[AI] Stream complete, ${fullContent.length} chars (${Date.now() - startTime}ms)`)
-
-      for (let i = 0; i < fullContent.length; i += 3) {
-        sender.send('ai:streamChunk', fullContent.slice(i, i + 3))
-      }
-      sender.send('ai:streamEnd')
-    } catch (error) {
-      logger.error(`[AI] Stream failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      sender.send(
-        'ai:streamError',
-        `Stream failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      )
-    }
+  ipcMain.handle('ai:chatStream', (event, config: AIConfig, messages: ChatMessage[], requestId: string) => {
+    runAgent(event.sender, config, messages, requestId)
   })
 }

@@ -8,7 +8,7 @@ import {
   Upload,
   Loader2
 } from 'lucide-react'
-import { useKnowledgeStore, type KnowledgeDoc } from '../../stores/knowledgeStore'
+import { useKnowledgeStore } from '../../stores/knowledgeStore'
 import { indexDocument, removeDocumentIndex } from '../../services/rag'
 import NoteEditor from './NoteEditor'
 

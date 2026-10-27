@@ -1,4 +1,4 @@
-import { useAppStore, type SearchCategory } from '../../stores/appStore'
+import { useAppStore } from '../../stores/appStore'
 
 const SEARCH_CATEGORIES = ['发现', '金融', '健康', '学术', '专利'] as const
 

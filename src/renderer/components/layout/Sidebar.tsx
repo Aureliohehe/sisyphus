@@ -11,13 +11,6 @@ const NAV_ITEMS = [
   { id: 'history', label: '历史', icon: '◷' }
 ] as const
 
-const RECENT_HISTORY = [
-  'React Server Components 最佳实践',
-  'Python 异步编程模式',
-  'LLM 推理优化方案',
-  '分布式系统一致性算法'
-]
-
 export default function Sidebar(): JSX.Element {
   const setView = useAppStore((s) => s.setView)
   const { setUserMenuOpen, avatarUrl, username } = useAppStore()

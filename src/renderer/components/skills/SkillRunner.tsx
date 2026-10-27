@@ -4,7 +4,7 @@ import { type Skill } from '../../stores/skillStore'
 import { useConversationStore, nextMsgId } from '../../stores/conversationStore'
 import { useChatStore } from '../../stores/chatStore'
 import { useAppStore } from '../../stores/appStore'
-import { sendChatMessageStream } from '../../services/ai-client'
+import { cancelAgent, sendChatMessageStream } from '../../services/ai-client'
 
 interface Props {
   skill: Skill
@@ -17,14 +17,16 @@ export default function SkillRunner({ skill, onEdit }: Props): JSX.Element {
   const [variables, setVariables] = useState<Record<string, string>>({})
   const [runState, setRunState] = useState<RunState>(null)
   const cancelledRef = useRef(false)
+  const isLoading = useChatStore((state) => state.isLoading)
 
   const handleRun = async (): Promise<void> => {
+    if (useChatStore.getState().isLoading) return
     const now = new Date()
     const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const defaultName = `${skill.name}_${dateStr}.md`
 
     const filePath = await window.api.saveFileDialog(defaultName)
-    if (!filePath) return
+    if (!filePath || useChatStore.getState().isLoading) return
 
     let promptsToRun: string[] = []
 
@@ -54,7 +56,7 @@ export default function SkillRunner({ skill, onEdit }: Props): JSX.Element {
       const prompt = promptsToRun[i]
       setRunState({ status: 'running', current: i + 1, total })
 
-      useConversationStore.getState().createConversation(`[技能] ${skill.name} - ${i + 1}/${total}`)
+      const conversationId = useConversationStore.getState().createConversation(`[技能] ${skill.name} - ${i + 1}/${total}`)
       useConversationStore.getState().addMessage({
         id: nextMsgId(),
         role: 'user',
@@ -76,16 +78,16 @@ export default function SkillRunner({ skill, onEdit }: Props): JSX.Element {
               id: nextMsgId(),
               role: 'assistant',
               content
-            })
+            }, conversationId)
             resolve(content)
           },
           onError: (error) => {
-            useChatStore.getState().setLoading(false)
+            useChatStore.getState().flushStream()
             reject(new Error(error))
           }
         })
       }).catch((err) => {
-        setRunState({ status: 'error', message: err.message })
+        setRunState(cancelledRef.current ? null : { status: 'error', message: err.message })
         return null
       })
 
@@ -102,6 +104,7 @@ export default function SkillRunner({ skill, onEdit }: Props): JSX.Element {
 
   const handleCancel = (): void => {
     cancelledRef.current = true
+    void cancelAgent().catch(() => setRunState({ status: 'error', message: '停止请求失败，请重试' }))
     setRunState(null)
   }
 
@@ -197,7 +200,7 @@ export default function SkillRunner({ skill, onEdit }: Props): JSX.Element {
       {!isRunning && runState?.status !== 'done' && (
         <button
           onClick={handleRun}
-          disabled={skill.type === 'template' && skill.variables?.some((v) => !variables[v]?.trim())}
+          disabled={isLoading || (skill.type === 'template' && skill.variables?.some((v) => !variables[v]?.trim()))}
           className="flex items-center justify-center gap-2 w-full py-2.5 text-sm text-white bg-surface-lighter border border-surface-border rounded-xl hover:bg-surface-light disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           <Play size={16} />

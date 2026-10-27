@@ -1,7 +1,7 @@
 export type AIProvider = 'minimax' | 'glm' | 'deepseek'
 
 export interface AIConfig {
-  provider: AIProvider
+  provider?: AIProvider
   apiKey: string
   baseURL: string
   model: string
@@ -9,9 +9,9 @@ export interface AIConfig {
 
 export interface ChatMessage {
   id: string
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
-  timestamp: number
+  timestamp?: number
 }
 
 export interface AIModelOption {

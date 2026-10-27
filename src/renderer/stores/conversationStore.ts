@@ -22,7 +22,7 @@ interface ConversationState {
   activeId: string | null
 
   createConversation: (firstMessage: string, knowledgeSpaceId?: string | null) => string
-  addMessage: (message: ChatMessage) => void
+  addMessage: (message: ChatMessage, conversationId?: string | null) => void
   appendToLastMessage: (content: string) => void
   deleteConversation: (id: string) => void
   clearAll: () => void
@@ -65,8 +65,8 @@ export const useConversationStore = create<ConversationState>()(
         return id
       },
 
-      addMessage: (message: ChatMessage) => {
-        const { activeId } = get()
+      addMessage: (message: ChatMessage, conversationId?: string | null) => {
+        const activeId = conversationId === undefined ? get().activeId : conversationId
         if (!activeId) return
         set((state) => ({
           conversations: state.conversations.map((c) =>

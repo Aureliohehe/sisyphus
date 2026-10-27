@@ -3,7 +3,15 @@ productName: Sisyphus
 directories:
   buildResources: build
   output: dist
+extraResources:
+  - from: build/agent
+    to: agent
+    filter:
+      - sisyphus-agent
+      - sisyphus-agent.exe
 files:
+  - '!agent/**/*'
+  - '!scripts/**/*'
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.*'

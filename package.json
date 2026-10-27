@@ -4,10 +4,13 @@
   "description": "Sisyphus AI Client - A modern AI assistant desktop application",
   "main": "./out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "dev": "npm run build:agent && electron-vite dev",
+    "build:agent": "node scripts/build-agent.mjs",
+    "test:agent": "cd agent && go test -race -timeout 30s ./...",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "build": "npm run build:agent && electron-vite build",
     "preview": "electron-vite preview",
-    "package": "electron-builder"
+    "package": "npm run build && electron-builder"
   },
   "dependencies": {
     "@xenova/transformers": "^2.17.2",

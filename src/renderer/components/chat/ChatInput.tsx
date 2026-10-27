@@ -8,6 +8,7 @@ import { useKnowledgeStore } from '../../stores/knowledgeStore'
 import { sendChatMessageStream } from '../../services/ai-client'
 import { buildRAGSystemPrompt } from '../../services/rag'
 import { filterCommands, executeCommand, parseCommand } from '../../services/commands'
+import AgentControls from './AgentControls'
 
 function formatAttachments(files: { name: string; content: string }[]): string {
   return files
@@ -22,6 +23,7 @@ export default function ChatInput(): JSX.Element {
   const [attachments, setAttachments] = useState<{ name: string; content: string; size: number }[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  const setView = useAppStore((s) => s.setView)
   const selectedProvider = useAppStore((s) => s.selectedProvider)
   const selectedModel = useAppStore((s) => s.selectedModel)
   const setProvider = useAppStore((s) => s.setProvider)
@@ -152,6 +154,7 @@ export default function ChatInput(): JSX.Element {
 
     const userMsg = { id: nextMsgId(), role: 'user' as const, content: fullContent }
     addMessage(userMsg)
+    const history = getActiveMessages()
     setValue('')
     setAttachments([])
     setLoading(true)
@@ -181,7 +184,7 @@ export default function ChatInput(): JSX.Element {
       allMessages.push({ id: 'system-0', role: 'system', content: systemContent })
     }
 
-    allMessages.push(...getActiveMessages(), userMsg)
+    allMessages.push(...history)
 
     try {
       await sendChatMessageStream(config, allMessages, {
@@ -189,7 +192,7 @@ export default function ChatInput(): JSX.Element {
         onDone: () => {
           const content = flushStream()
           if (content) {
-            addMessage({ id: nextMsgId(), role: 'assistant', content })
+            addMessage({ id: nextMsgId(), role: 'assistant', content }, activeId)
           }
           setLoading(false)
         },
@@ -198,8 +201,8 @@ export default function ChatInput(): JSX.Element {
           addMessage({
             id: nextMsgId(),
             role: 'assistant',
-            content: `Error: ${error}`
-          })
+            content: `提示：${error}`
+          }, activeId)
           setLoading(false)
         }
       })
@@ -208,8 +211,8 @@ export default function ChatInput(): JSX.Element {
       addMessage({
         id: nextMsgId(),
         role: 'assistant',
-        content: `Connection error: ${err instanceof Error ? err.message : 'Unknown error'}`
-      })
+        content: `连接错误：${err instanceof Error ? err.message : '未知错误'}`
+      }, activeId)
     }
   }
 
@@ -251,6 +254,7 @@ export default function ChatInput(): JSX.Element {
   return (
     <div className="border-t border-surface-border bg-surface">
       <div className="max-w-[740px] mx-auto p-4">
+        <AgentControls />
         <div className="capsule-input relative rounded-[28px]">
           <textarea
             ref={textareaRef}
@@ -439,7 +443,7 @@ export default function ChatInput(): JSX.Element {
 
               <button
                 onClick={handleSend}
-                disabled={!value.trim() && attachments.length === 0}
+                disabled={isLoading || (!value.trim() && attachments.length === 0)}
                 className="p-1.5 text-white disabled:text-muted-dim hover:bg-surface-lighter rounded-lg transition-colors"
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">

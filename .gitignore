@@ -8,6 +8,7 @@ vendor/
 bower_components/
 
 # Build outputs
+*.tsbuildinfo
 dist/
 build/
 out/

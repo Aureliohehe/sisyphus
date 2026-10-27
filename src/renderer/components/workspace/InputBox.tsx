@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Paperclip, X, BookOpen, Command, Terminal } from 'lucide-react'
+import { Paperclip, X, BookOpen, Terminal } from 'lucide-react'
 import { useAppStore, AI_MODELS, type ModelOption } from '../../stores/appStore'
 import { useChatStore } from '../../stores/chatStore'
 import { useConversationStore, nextMsgId } from '../../stores/conversationStore'
@@ -7,7 +7,8 @@ import { useAssistantStore, type CustomAssistant } from '../../stores/assistantS
 import { useKnowledgeStore } from '../../stores/knowledgeStore'
 import { sendChatMessageStream } from '../../services/ai-client'
 import { buildRAGSystemPrompt } from '../../services/rag'
-import { filterCommands, executeCommand, parseCommand, type CommandDefinition } from '../../services/commands'
+import { filterCommands, executeCommand, parseCommand } from '../../services/commands'
+import AgentControls from '../chat/AgentControls'
 
 function formatAttachments(files: { name: string; content: string }[]): string {
   return files
@@ -310,13 +311,13 @@ export default function InputBox(): JSX.Element {
         onDone: () => {
           const content = flushStream()
           if (content) {
-            addMessage({ id: nextMsgId(), role: 'assistant', content })
+            addMessage({ id: nextMsgId(), role: 'assistant', content }, convId)
           }
           setLoading(false)
         },
         onError: (error) => {
           flushStream()
-          addMessage({ id: nextMsgId(), role: 'assistant', content: `Error: ${error}` })
+          addMessage({ id: nextMsgId(), role: 'assistant', content: `提示：${error}` }, convId)
           setLoading(false)
         }
       })
@@ -325,13 +326,14 @@ export default function InputBox(): JSX.Element {
       addMessage({
         id: nextMsgId(),
         role: 'assistant',
-        content: `Connection error: ${err instanceof Error ? err.message : 'Unknown error'}`
-      })
+        content: `连接错误：${err instanceof Error ? err.message : '未知错误'}`
+      }, convId)
     }
   }
 
   return (
     <div className="w-full max-w-[680px] mx-auto px-4">
+      <AgentControls />
       <div className="capsule-input relative rounded-[28px]">
         <textarea
           value={value}
@@ -574,7 +576,7 @@ export default function InputBox(): JSX.Element {
 
             <button
               onClick={handleSubmit}
-              disabled={!value.trim() && attachments.length === 0}
+              disabled={isLoading || (!value.trim() && attachments.length === 0)}
               className="p-2 text-white disabled:text-muted-dim hover:bg-surface-lighter rounded-lg transition-colors"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
